@@ -35,7 +35,7 @@ module Config
         key.to_s.split('.').reverse.each do |element|
           hash = {element => hash}
         end
-        DeepMerge.deep_merge!(hash, conf, :preserve_unmergeables => false)
+        conf.deep_merge!(hash)
       end
 
       merge!(conf[Config.const_name] || {})
@@ -52,7 +52,7 @@ module Config
         if conf.empty?
           conf = source_conf
         else
-          DeepMerge.deep_merge!(source_conf, conf, :preserve_unmergeables => false)
+          conf.deep_merge!(source_conf)
         end
       end
 
@@ -96,7 +96,7 @@ module Config
 
     def merge!(hash)
       current = to_hash
-      DeepMerge.deep_merge!(hash.dup, current)
+      current.deep_merge!(hash.dup)
       marshal_load(__convert(current).marshal_dump)
       self
     end
