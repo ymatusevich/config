@@ -76,7 +76,7 @@ module Config
         if conf.empty?
           conf = source_conf
         else
-          DeepMerge.deep_merge!(
+          conf.deep_merge!(
                                 source_conf,
                                 conf,
                                 preserve_unmergeables: false,
@@ -129,7 +129,7 @@ module Config
 
     def merge!(hash)
       current = to_hash
-      DeepMerge.deep_merge!(
+      current.deep_merge!(
                             hash.dup,
                             current,
                             preserve_unmergeables: false,
