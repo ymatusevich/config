@@ -3,6 +3,7 @@ require 'config/options'
 require 'config/configuration'
 require 'config/version'
 require 'config/sources/yaml_source'
+require 'config/sources/db_source'
 require 'config/sources/hash_source'
 require 'config/sources/env_source'
 require 'config/validation/schema'
@@ -25,7 +26,11 @@ module Config
     overwrite_arrays: true,
     merge_hash_arrays: false,
     validation_contract: nil,
-    evaluate_erb_in_yaml: true
+    evaluate_erb_in_yaml: true,
+    # custom Corevist configuration
+    database_yml_path: '/config/database.yml',
+    key_key: :key,
+    value_key: :value
   )
 
   def self.setup
@@ -36,11 +41,21 @@ module Config
   # Create a populated Options instance from a settings file. If a second file is given, then the sections of that
   # file will overwrite existing sections of the first file.
   def self.load_files(*files)
+    load_sources(:files, files)
+  end
+
+  def self.load_tables(*files)
+    load_sources(:tables, files)
+  end
+
+  def self.load_sources(source_type, *sources)
     config = Options.new
 
     # add settings sources
-    [files].flatten.compact.uniq.each do |file|
-      config.add_source!(file.to_s)
+    [sources].flatten.compact.uniq.each do |source|
+      next config.add_source!(source.to_s) if source_type == :files
+
+      config.add_source!(Sources::DbSource.new(source))
     end
 
     config.add_source!(Sources::EnvSource.new(ENV)) if Config.use_env
@@ -49,12 +64,30 @@ module Config
     config
   end
 
-  # Loads and sets the settings constant!
   def self.load_and_set_settings(*files)
+    reset_const(Config.load_files(files))
+  end
+
+  def self.load_and_set_settings_from_db(*tables)
+    reset_const(Config.load_tables(tables))
+  end
+
+  def self.load_and_set_custom_settings(options = {})
+    files = options.fetch(:files, [])
+    tables = options.fetch(:tables, [])
+    files_data = Config.load_files(files)
+    tables_data = Config.load_tables(tables)
+    data = files_data.merge!(tables_data.to_h)
+    reset_const(data)
+  end
+
+  # Loads and sets the settings constant!
+  def self.reset_const(data)
     name = Config.const_name
     Object.send(:remove_const, name) if Object.const_defined?(name)
-    Object.const_set(name, Config.load_files(files))
+    Object.const_set(name, data)
   end
+
 
   def self.setting_files(config_root, env)
     [

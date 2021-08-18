@@ -34,7 +34,7 @@ module Config
     # look through all our sources and rebuild the configuration
     def reload!
       conf = {}
-      @config_sources.each do |source|
+      @config_sources.to_a.each do |source|
         source_conf = source.load
 
         if conf.empty?
@@ -64,6 +64,16 @@ module Config
 
     def reload_from_files(*files)
       Config.load_and_set_settings(files)
+      reload!
+    end
+
+    def reload_from_database(*tables)
+      Config.load_and_set_settings_from_db(tables)
+      reload!
+    end
+
+    def reload_from_different_sources(options = {})
+      Config.load_and_set_custom_settings(options)
       reload!
     end
 
