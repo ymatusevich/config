@@ -11,20 +11,26 @@ module Config
         @db_config = File.read(Config.database_yml_path)
       end
 
-      # returns a config hash from the YML file
       def load
-        config = YAML.load(db_config)[Rails.env]
-        connection_pool = ActiveRecord::Base.establish_connection(config)
+        Thread.current[:current_configs] = nil
 
-        if table && connection_pool.connection && connection_pool.connected? && connection_pool.connection.table_exists?(table)
-          sql = "select `#{Config.key_key}`, `#{Config.value_key}` from #{table};"
-          file_contents = { table => parse_values(ActiveRecord::Base.connection.execute(sql).to_h) }
-          result = file_contents.with_indifferent_access
+        Thread.current do
+          connection_pool = ActiveRecord::Base.connection_pool
+          connection = connection_pool.retrieve_connection
+
+          if table && connection && connection_pool.connected? && connection.table_exists?(table)
+            sql = "select `#{Config.key_key}`, `#{Config.value_key}` from #{table};"
+            file_contents = { table => parse_values(connection.execute(sql).to_h) }
+            result = file_contents.with_indifferent_access
+          end
+
+          connection_pool.connection.close if connection_pool.active_connection?
+          connection_pool.disconnect! if connection_pool.connected?
+
+          Thread.current[:current_configs] = result.presence
         end
 
-        connection_pool.connection.close if connection_pool.connected?
-
-        result || {}
+        Thread.current[:current_configs] || {}
       rescue ActiveRecord::NoDatabaseError
         {}
       end
